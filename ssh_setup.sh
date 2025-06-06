@@ -5,8 +5,20 @@ set -e
 echo "🔧 Updating system packages..."
 sudo apt update && sudo apt upgrade -y
 
-echo "📦 Installing Zsh, Git, curl, and bat..."
+echo "📦 Installing core dependencies: zsh, git, curl, bat, node, nginx, pm2..."
+
+# Zsh, Git, Curl, Bat
 sudo apt install -y zsh git curl bat
+
+# Node.js (via NodeSource for latest LTS)
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Nginx
+sudo apt install -y nginx
+
+# PM2 globally via npm
+sudo npm install -g pm2
 
 echo "🐚 Installing Oh My Zsh..."
 export RUNZSH=no
