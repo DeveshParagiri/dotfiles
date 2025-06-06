@@ -22,14 +22,15 @@ echo "🔧 Updating and installing core tools..."
 
 if [[ "$PM" == "apt" ]]; then
   sudo apt update && sudo apt upgrade -y
-  sudo apt install -y zsh git curl bat nodejs nginx
+  sudo apt install -y zsh git curl bat
+
   curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-  sudo apt install -y nodejs
+  sudo apt install -y nodejs nginx
+
 elif [[ "$PM" == "yum" || "$PM" == "dnf" ]]; then
   sudo $PM update -y
   sudo $PM install -y zsh git curl
 
-  # Manual install for bat (not available in yum by default)
   if ! command -v bat &>/dev/null; then
     echo "⬇️ Installing bat manually..."
     curl -LO https://github.com/sharkdp/bat/releases/download/v0.24.0/bat-0.24.0-x86_64-unknown-linux-gnu.tar.gz
@@ -38,7 +39,6 @@ elif [[ "$PM" == "yum" || "$PM" == "dnf" ]]; then
     rm -rf bat-0.24.0-*
   fi
 
-  # Install Node.js
   curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo bash -
   sudo $PM install -y nodejs nginx
 fi
@@ -55,34 +55,42 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 
 ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
 
-# Only clone non-bundled plugins
+# Only external non-bundled plugins
 declare -A plugins
 plugins=(
   [zsh-autosuggestions]="https://github.com/zsh-users/zsh-autosuggestions.git"
   [fast-syntax-highlighting]="https://github.com/zdharma-continuum/fast-syntax-highlighting.git"
   [you-should-use]="https://github.com/MichaelAquilina/zsh-you-should-use.git"
-  [zsh-bat]="https://github.com/eth-p/zsh-bat.git"
-  [web-search]="https://github.com/lukechilds/zsh-web-search.git"
   [zsh-history-substring-search]="https://github.com/zsh-users/zsh-history-substring-search.git"
 )
 
 echo "🔌 Installing external Zsh plugins..."
 for plugin in "${!plugins[@]}"; do
   repo_url="${plugins[$plugin]}"
+  target_dir="$ZSH_CUSTOM/plugins/$plugin"
+
   echo "⬇️  Cloning $plugin from $repo_url"
-  git clone "$repo_url" "$ZSH_CUSTOM/plugins/$plugin"
+
+  if git ls-remote "$repo_url" &>/dev/null; then
+    git clone --depth=1 "$repo_url" "$target_dir"
+  else
+    echo "⚠️  Skipping $plugin: Repo not accessible or private."
+  fi
 done
 
+# --------------------------
+# 🧱 Custom plugin: buildme
+# --------------------------
 echo "🧱 Installing custom 'buildme' plugin..."
 git clone https://github.com/deveshparagiri/buildme "$ZSH_CUSTOM/plugins/buildme"
 
 # --------------------------
-# 🔧 Update .zshrc
+# 📝 Update .zshrc
 # --------------------------
 echo "📝 Updating .zshrc plugin list..."
-sed -i '/^plugins=/c\plugins=(git zsh-autosuggestions fast-syntax-highlighting you-should-use zsh-bat web-search zsh-history-substring-search buildme npm docker conda pip python aliases kitty)' ~/.zshrc
+sed -i '/^plugins=/c\plugins=(git zsh-autosuggestions fast-syntax-highlighting you-should-use zsh-history-substring-search buildme npm docker conda pip python aliases kitty)' ~/.zshrc
 
-# Bat alias for Ubuntu systems
+# Alias for Ubuntu's batcat
 if [[ "$PM" == "apt" ]]; then
   echo "alias bat='batcat'" >> ~/.zshrc
 fi
