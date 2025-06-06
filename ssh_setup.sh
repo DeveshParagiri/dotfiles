@@ -1,23 +1,50 @@
 #!/bin/bash
-
 set -e
 
+# Detect package manager
+if command -v apt >/dev/null; then
+  PM="apt"
+elif command -v yum >/dev/null; then
+  PM="yum"
+elif command -v dnf >/dev/null; then
+  PM="dnf"
+else
+  echo "❌ Unsupported package manager. Exiting."
+  exit 1
+fi
+
 echo "🔧 Updating system packages..."
-sudo apt update && sudo apt upgrade -y
+if [[ "$PM" == "apt" ]]; then
+  sudo apt update && sudo apt upgrade -y
+else
+  sudo $PM update -y
+fi
 
-echo "📦 Installing core dependencies: zsh, git, curl, bat, node, nginx, pm2..."
+echo "📦 Installing core dependencies: zsh, git, curl, node, nginx, pm2, bat..."
 
-# Zsh, Git, Curl, Bat
-sudo apt install -y zsh git curl bat
+# Base packages
+if [[ "$PM" == "apt" ]]; then
+  sudo apt install -y zsh git curl bat
 
-# Node.js (via NodeSource for latest LTS)
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-sudo apt install -y nodejs
+  curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+  sudo apt install -y nodejs nginx
 
-# Nginx
-sudo apt install -y nginx
+elif [[ "$PM" == "yum" || "$PM" == "dnf" ]]; then
+  sudo $PM install -y zsh git curl
 
-# PM2 globally via npm
+  if ! command -v bat &>/dev/null; then
+    echo "⬇️ Installing bat manually..."
+    curl -LO https://github.com/sharkdp/bat/releases/download/v0.24.0/bat-0.24.0-x86_64-unknown-linux-gnu.tar.gz
+    tar -xzf bat-0.24.0-*.tar.gz
+    sudo mv bat-*/bat /usr/local/bin/
+    rm -rf bat-0.24.0-*
+  fi
+
+  curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo bash -
+  sudo $PM install -y nodejs nginx
+fi
+
+# PM2 via npm
 sudo npm install -g pm2
 
 echo "🐚 Installing Oh My Zsh..."
@@ -27,7 +54,6 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
 
 echo "🔌 Installing Zsh Plugins..."
-
 declare -A plugins
 plugins=(
   [zsh-autosuggestions]="https://github.com/zsh-users/zsh-autosuggestions.git"
@@ -66,5 +92,7 @@ echo "💡 Setting Zsh as the default shell..."
 chsh -s $(which zsh)
 
 echo "✅ Done. Start a new shell or type 'zsh' to switch!"
-echo "🟡 Note: On Ubuntu, 'bat' is installed as 'batcat'. You can alias it using:"
-echo "alias bat='batcat'" >> ~/.zshrc
+if [[ "$PM" == "apt" ]]; then
+  echo "🟡 Note: On Ubuntu, 'bat' is installed as 'batcat'. You can alias it using:"
+  echo "alias bat='batcat'" >> ~/.zshrc
+fi
